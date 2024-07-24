@@ -1,56 +1,46 @@
 const express = require('express');
-const mongoose = require('mongoose');
+const { Pool } = require('pg');
 const session = require('express-session');
-var passport = require('passport');
-var crypto = require('crypto');
-var routes = require('./routes');
-const connection = require('./config/database');
+const passport = require('passport');
+const crypto = require('crypto');
+const pgSession = require('connect-pg-simple')(session);
+const db = require('./config/database');
+const routes = require('./routes');
 
-// Package documentation - https://www.npmjs.com/package/connect-mongo
-const MongoStore = require('connect-mongo')(session);
-
-// Need to require the entire Passport config module so app.js knows about it
-require('./config/passport');
-
-/**
- * -------------- GENERAL SETUP ----------------
- */
+// Create the Express application
+const app = express();
 
 // Gives us access to variables set in the .env file via `process.env.VARIABLE_NAME` syntax
 require('dotenv').config();
 
-// Create the Express application
-var app = express();
-
 app.use(express.json());
-app.use(express.urlencoded({extended: true}));
+app.use(express.urlencoded({ extended: true }));
 
+// Session setup
+app.use(
+  session({
+    store: new pgSession({
+      pool: db,
+      tableName: 'session',
+    }),
+    secret: 'lol', // Use an environment variable for the secret
+    resave: false,
+    saveUninitialized: true,
+    cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 }, // 30 days
+  })
+);
 
-/**
- * -------------- SESSION SETUP ----------------
- */
-
-// TODO
-
-/**
- * -------------- PASSPORT AUTHENTICATION ----------------
- */
-
+// Passport authentication setup
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Need to require the entire Passport config module so app.js knows about it
+require('./config/passport');
 
-/**
- * -------------- ROUTES ----------------
- */
-
-// Imports all of the routes from ./routes/index.js
+// Routes
 app.use(routes);
 
-
-/**
- * -------------- SERVER ----------------
- */
-
 // Server listens on http://localhost:3000
-app.listen(3000);
+app.listen(3000, () => {
+  console.log('Server is running on port 3000');
+});
